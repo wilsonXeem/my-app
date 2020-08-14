@@ -87,12 +87,12 @@ module.exports.postLogin = async (req, res, next) => {
         // Check if user exists
         const user = await userExist("email", email)
 
-        if (!user) error.errorHandler(res, "Invalid email", "email")
+        if (!user) error.errorHandler(res, "Incorrect email", "email")
 
         // Compare if password match
         const pwMatch = await bcrypt.compare(password, user.password)
 
-        if (!pwMatch) error.errorHandler(res, "Invalid password", "password")
+        if (!pwMatch) error.errorHandler(res, "Incorrect password", "password")
 
         // Continue if there are no errors
 
@@ -124,11 +124,10 @@ module.exports.postPasswordReset = async (req, res, next) => {
 
         // Check for validation errors
         const validatorErrors = validationResult(req)
-
-        error.validationError(validatorErrors)
+        error.validationError(validatorErrors, res)
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "No user found with that email")
+        if (!user) error.errorHandler(res, "No user found with that email", "email")
 
         // Continue if there are no errors
 
@@ -145,11 +144,11 @@ module.exports.postPasswordReset = async (req, res, next) => {
         // Send password reset email to user
         client.sendMail({
             to: email,
-            from: "xeem@facebookproject.com",
+            from: "xeem@muyihira.com",
             subject: "Password reset",
             html: `
             <h3>You have requested a password reset</h3>
-            <p>Follow this <a href=""${process.env.API_URI}/password-reset/${resetToken}">link</a> here to reset your password</p>
+            <p>Follow this <a href="${process.env.API_URI}/password-reset/${resetToken}">link</a> here to reset your password</p>
             <p>Password reset link is only valid for an hour</p>
             `
         })
@@ -159,8 +158,9 @@ module.exports.postPasswordReset = async (req, res, next) => {
 
         // Send response back to client
         res
+            .redirect(301, )
             .status(200)
-            .json({ message: "A password reset link has been sent to your email" })
+            .json({ message: "A password reset link has been sent to your email", type: "message" })
     } catch (err) {
         error.error(err, next)
     }
@@ -192,13 +192,15 @@ module.exports.getPasswordChange = async (req, res, next) => {
             await user.save()
             error.errorHandler(401, "Password reset session has expired")
         }
+
+        res.status(200).json({ status: 200 })
     } catch (err) {
         error.error(err, next)
     }
 }
 
 /************************
- * Post Password CHange *
+ * Post Password Change *
  ************************/
 module.exports.postPasswordChange = async (req, res, next) => {
     const password = req.body.password,

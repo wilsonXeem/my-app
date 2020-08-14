@@ -18,7 +18,7 @@ router.post(
         body("lastName", "Last name cannot be empty")
             .not()
             .isEmpty(),
-        body("password", "Password must be at least 10 characters long")
+        body("password", "Password must be at least 8 characters long")
             .isLength({ min: 8 })
             .not()
             .isEmpty(),
@@ -38,7 +38,7 @@ router.post(
 
                 if (age < 18) {
                     return Promise.reject(
-                        "You must be at least 18 years or loder to sign up"
+                        "You must be at least 18 years or older to sign up"
                     )
                 }
 
@@ -51,7 +51,7 @@ router.post(
 router.post("/login", authControllers.postLogin)
 
 router.post(
-    "password-reset",
+    "/password-reset",
     [
         body("email", "Please enter a valid email")
         .isEmail()

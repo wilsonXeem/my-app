@@ -110,10 +110,10 @@ module.exports.postLogin = async (req, res, next) => {
 }
 
 /**********************
- * Get Password Reset *
+ * Post Password Reset *
  **********************/
 module.exports.postPasswordReset = async (req, res, next) => {
-    const email = req.body.email
+    const email = req.body.email.toLowerCase()
 
     try {
         // Check if user exists with that email
@@ -148,7 +148,7 @@ module.exports.postPasswordReset = async (req, res, next) => {
             subject: "Password reset",
             html: `
             <h3>You have requested a password reset</h3>
-            <p>Follow this <a href="${process.env.API_URI}/password-reset/${resetToken}">link</a> here to reset your password</p>
+            <p>Follow this <a href="password-reset-token">link</a> here to reset your password</p>
             <p>Password reset link is only valid for an hour</p>
             `
         })
@@ -158,7 +158,6 @@ module.exports.postPasswordReset = async (req, res, next) => {
 
         // Send response back to client
         res
-            .redirect(301, )
             .status(200)
             .json({ message: "A password reset link has been sent to your email", type: "message" })
     } catch (err) {
@@ -180,7 +179,7 @@ module.exports.getPasswordChange = async (req, res, next) => {
         )
 
         // Check if user is undefined
-        if (!user) error.errorHandler(401, "Invalid Token")
+        if (!user) error.errorHandler(res, "Invalid Token", "token")
 
         // Check if token has expired
         if (user.resetExpiration < Date.now()) {
@@ -190,10 +189,10 @@ module.exports.getPasswordChange = async (req, res, next) => {
 
             // Save user back to database
             await user.save()
-            error.errorHandler(401, "Password reset session has expired")
+            error.errorHandler(res, "Password reset session has expired", "message")
         }
 
-        res.status(200).json({ status: 200 })
+        res.status(200).json({ token, status: 200 })
     } catch (err) {
         error.error(err, next)
     }
@@ -211,7 +210,7 @@ module.exports.postPasswordChange = async (req, res, next) => {
         const user = await User.findOne({ resetToken }, "password resetToken")
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "No user found")
+        if (!user) error.errorHandler(res, "No user found", "user")
 
         // Continue if there are no error
 

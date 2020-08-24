@@ -12,7 +12,7 @@ const error = require('../util/error-handling/error-handler')
 const { userExist, getUser } = require('../util/user')
 const { getPost, populatePost } = require('../util/post')
 const { getChat, validChatUser } = require('../util/chat')
-const { notifyFriend } = require('../util/notifications')
+const { notifyFriend, notifyFriendRequest } = require('../util/notifications')
 const { removeImage } = require('../util/images/image')
 const isAuth = require('../util/is-auth/isAuth')
 const user = require('../models/user')
@@ -219,23 +219,21 @@ module.exports.sendRequest = async (req, res, next) => {
     const userId = req.body.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get receiving user info
         const receivingUser = await getUser(friendId),
             currentUser = await userExist("id", userId)
 
         // Check if currentUser exist
-        if (!currentUser) error.errorHandler(403, "Not Authorized")
+        if (!currentUser) error.errorHandler(res, "Not Authorized", "user")
 
         // Check if currentUser doen't already have a pending request from other user
         if (
             currentUser.requests.content.find(req => req.user.toString() === friendId)
         ) {
             error.errorHandler(
-                422,
-                "You already have a pending request from this user"
+                res,
+                "You already have a pending request from this user", "friend"
             )
         }
 
@@ -245,7 +243,7 @@ module.exports.sendRequest = async (req, res, next) => {
         )
 
         if (existingRequest)
-            error.errorHandler(422, "You already have a pending request")
+            error.errorHandler(res, "You already have a pending request", "user")
 
         // Check if users aren't already friends
         const isFriends = currentUser.friends.find(
@@ -253,13 +251,16 @@ module.exports.sendRequest = async (req, res, next) => {
         )
 
         if (isFriends) {
-            error.errorHandler(422, "Already friends with this user")
+            error.errorHandler(res, "Already friends with this user", "user")
         }
 
         // Continue if no errors
 
         // Add to request count for receiving user
         receivingUser.requests.count = receivingUser.requests.count + 1
+
+        // Add notification to users about the request
+        await notifyFriendRequest(currentUser, receivingUser, "friend request")
 
         const contentData = {
             user: userId,
@@ -301,24 +302,21 @@ module.exports.declineRequest = async (req, res, next) => {
     const userId = req.body.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         // Check if friendId is undefined
-        if (!requestId) error.errorHandler(404, "No request found")
+        if (!requestId) error.errorHandler(res, "No request found", "request")
 
         // Continue if there are no errors
         const user = await userExist("id", userId)
 
         // Check if user is undefined
-        if (!user) error.errorHandler(403, "Not Authorized")
+        if (!user) error.errorHandler(res, "Not Authorized", "user")
 
         // Check if requesting user exists
         const existingRequest = user.requests.content.find(
             req => req._id.toString() === requestId
         )
 
-        if (!existingRequest) error.errorHandler(404, "Friend request not found")
+        if (!existingRequest) error.errorHandler(res, "Friend request not found", "request")
 
         // Remove count from user
         if (user.requests.count !== 0) {
@@ -344,14 +342,14 @@ module.exports.acceptRequest = async (req, res, next) => {
     const friendId = req.body.friendId
     const requestId = req.body.requestId
 
-    const userId = req.userId
+    const userId = req.body.userId
 
     try {
         // Get current user profile
         const currentUser = await userExist("id", userId)
 
         // Check if currentUser is undefined
-        if (!currentUser) error.errorHandler(403, "Not Authorized")
+        if (!currentUser) error.errorHandler(res, "Not Authorized", "user")
 
         // Get rquestingUser profile
         const requestingUser = await getUser(friendId)
@@ -391,18 +389,15 @@ module.exports.acceptRequest = async (req, res, next) => {
  *************************/
 module.exports.cancelFriendRequest = async (req, res, next) => {
     const friendId = req.body.friendId
-    const userId = req.userId
+    const userId = req.body.userId
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         const friend = await User.findById(
             friendId,
             "requests firstName lastName fullName profileImage"
         )
 
         // Check to see if friend is undefined
-        if (!friend) error.errorHandler(404, "User not found")
+        if (!friend) error.errorHandler(res, "User not found", "friend")
 
         // Remove pending request on friend requests content
         friend.requests.content = friend.requests.content.filter(
@@ -847,9 +842,6 @@ module.exports.postCreateMessage = async (req, res, next) => {
         message = req.body.message
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         // Check for validation errors
         const validationError = validationResult(req)
         error.validationError(validationError)
@@ -984,7 +976,7 @@ module.exports.getUserFriends = async (req, res, next) => {
             "friends firstName lastName"
         ).populate("friends", "firstName lastName profileImage")
 
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 
@@ -1031,14 +1023,11 @@ module.exports.clearFriendRequestCount = async (req, res, next) => {
     const userId = req.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not found")
-
         // Get user
         const user = await User.findById(userId, "requests")
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 

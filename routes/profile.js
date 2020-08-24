@@ -6,9 +6,9 @@ const profileControllers = require('../controllers/profile')
 
 router.get("/timeline/:userId", profileControllers.getUserTimeline)
 
-router.get("/details", profileControllers.getProfileDetails)
-router.patch("/details", profileControllers.postUpdateProfileDetails)
+router.post("/details", profileControllers.getProfileDetails)
+router.patch("/details/update", profileControllers.postUpdateProfileDetails)
 
-router.patch("/image", profileControllers.changeImage)
+router.post("/image", profileControllers.changeImage)
 
 module.exports = router

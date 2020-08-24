@@ -22,7 +22,7 @@ router.delete("/friend-request", userControllers.clearFriendRequestCount)
 
 router.post("/accept-friend", userControllers.acceptRequest)
 router.post("/decline-friend", userControllers.declineRequest)
-router.post("/cancel-friend", userControllers.declineRequest)
+router.post("/cancel-friend", userControllers.cancelFriendRequest)
 router.delete("/remove-friend", userControllers.removeFriend)
 
 router.post(

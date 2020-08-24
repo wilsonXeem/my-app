@@ -8,6 +8,7 @@ const bodyParser = require('body-parser')
 const compression = require('compression')
 const error = require("./util/error-handling/error-handler")
 const isAuth = require('./util/is-auth/isAuth')
+const User = require('./models/user')
 
 // Set up dotenv
 dotenv.config()
@@ -28,10 +29,10 @@ const storage = new GridFSStorage({
     url: 'mongodb://localhost/FB_Clone',
     file: (req, file) => {
         return new Promise((resolve, reject) => {
-            const filename = `${new Date().toISOString()}-${file.originalname}`
+            const imageUrl = `${file.originalname}`
 
             const fileInfo = {
-                filename: filename,
+                imageUrl: imageUrl,
                 bucketName: "uploads"
             }
             resolve(fileInfo)
@@ -65,7 +66,17 @@ app.use(compression())
 
 // Parse incoming requests
 app.use(bodyParser.json())
-app.use(multer({ storage, fileFilter }).single("image"))
+const upload = (multer({ storage: storage, fileFilter }).single("image"))
+// const upload = multer({dest: 'mongodb://localhost/FB_Clone'}).single("image")
+
+app.patch("/image", (req, res) => {
+    upload(req, res, (err) => {
+        if (err) {
+            res.status(400).send("Something went wrong!")
+        }
+        res.send(req.file)
+    })
+})
 
 // Set headers
 app.use((req, res, next) => {
@@ -90,11 +101,11 @@ app.use((req, res, next) => {
 app.use(isAuth)
 
 // Get images from database
-app.get("/:imageName", async (req, res, next) => {
-    const filename = req.params.imageName
+app.get("/image", async (req, res, next) => {
+    const imageUrl = req.body.imageUrl
     try {
         // Read output to browser
-        const readstream = gfs.createReadStream(filename, {
+        const readstream = gfs.createReadStream(imageUrl, {
             highWaterMark: Math.pow(20, 40)
         })
 

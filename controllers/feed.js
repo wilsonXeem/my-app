@@ -26,7 +26,7 @@ const post = require('../models/post')
 const { errorMonitor } = require('nodemailer/lib/mailer')
 
 /******************************
- * Get Posts FromCurrent User *
+ * Get Posts From Current User *
  ******************************/
 
 module.exports.getPosts = async (req, res, next) => {
@@ -95,7 +95,7 @@ module.exports.getPosts = async (req, res, next) => {
         }
     } catch (err) {
         error.error(err, next)
-    }
+    } 
 }
 
 /*******************

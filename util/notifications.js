@@ -255,12 +255,84 @@ module.exports = {
         await updatedPost.save()
         await notifyUser.save()
     },
+
+    // Sending notification for friend request
+    notifyFriendRequest: async (currentUser, receivingUser, type) => {
+        // Check if both user doesn't already have an existing notification
+        const currentUserNotification = currentUser.notifications.content.filter(
+            item => {
+                if (item.payload.friendId) {
+                    item.payload.friendId.toString() === receivingUser._id.toString() &&
+                        item.payload.alertType === type
+                }
+            }
+        )
+
+        const receivingUserNotification = receivingUser.notifications.content.filter(
+            item => {
+                if (item.payload.friendId) {
+                    item.payload.friendId.toString() === currentUser._id.toString() &&
+                        item.payload.alertType === type
+                }
+            }
+        )
+
+        // Doesn't have a notification for this request
+        if (currentUserNotification.length <= 0) {
+            // Create notification for current user
+            const content = {
+                payload: {
+                    alertType: type,
+                    friendId: receivingUser._id,
+                    userImage: receivingUser.profileImage.imageUrl
+                },
+                date: Date.now(),
+                message: `You sent ${receivingUser.firstName} ${receivingUser.lastName} a friend request`
+            }
+
+            // Unshift payload unto currentUser content
+            currentUser.notifications.content.unshift(content)
+
+            // Add count to notification
+            currentUser.notifications.count = currentUser.notifications.count + 1
+        }
+
+        if (receivingUserNotification.length <= 0) {
+            // Create notification for current user
+            const content = {
+                payload: {
+                    alertType: type,
+                    friendId: currentUser._id,
+                    userImage: currentUser.profileImage.imageUrl
+                },
+                date: Date.now(),
+                message: `${currentUser.firstName} ${currentUser.lastName} sent you a friend request`
+            }
+
+            // Unshift payload unto currentUser content
+            receivingUser.notifications.content.unshift(content)
+
+            // Add count to notification
+            receivingUser.notifications.count = receivingUser.notifications.count + 1
+        }
+    },
+
+    // Sending notification for accepting friend request
     notifyFriend: async (currentUser, requestingUser, type) => {
         // Check if both user doesn't already have an existing notification
         const currentUserNotification = currentUser.notifications.content.filter(
             item => {
                 if (item.payload.friendId) {
                     item.payload.friendId.toString() === requestingUser._id.toString() &&
+                        item.payload.alertType === type
+                }
+            }
+        )
+
+        const requestingUserNotification = requestingUser.notifications.content.filter(
+            item => {
+                if (item.payload.friendId) {
+                    item.payload.friendId.toString() === currentUser._id.toString() &&
                         item.payload.alertType === type
                 }
             }

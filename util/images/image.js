@@ -3,7 +3,7 @@ const Grid = require('gridfs-stream')
 const ObjectId = mongoose.Types.ObjectId
 
 // Set up monggose connection
-const conn = mongoose.createConnection("mongodb://localhost/FB_Clone")
+const conn = mongoose.createConnection("mongodb://localhost/FB_Clone", { useNewUrlParser: true, useUnifiedTopology: true })
 
 // Set up grids stream
 let gfs
@@ -17,12 +17,12 @@ module.exports = {
     removeImage: async (filename, fileId, type = "id") => {
         // Check to make sure that filename isn't equal to the default filename
         if (
-            filename === `${process.env.API_URI}/2019-11-18T06:45:32.876Z-placeholder-profile-image.jpeg`
+            filename === `no_profile.jpg`
         )
             return
 
         if (
-            filename === `${process.env.API_URI}/2019-11-18T22:01:19.998Z-banner.png`
+            filename === `profile.png`
         )
             return
 

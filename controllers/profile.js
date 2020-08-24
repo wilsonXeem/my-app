@@ -31,7 +31,7 @@ module.exports.getUserTimeline = async (req, res, next) => {
                 ]
             })
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 
@@ -46,13 +46,13 @@ module.exports.getUserTimeline = async (req, res, next) => {
  *  Get Profile Details *
  ************************/
 module.exports.getProfileDetails = async (req, res, next) => {
-    req.userId = "5dc44cfcc6bf2c3e3f1cab72"
+    const userId = req.body.userId
 
     try {
         // Get and validate user
-        const user = await User.findById(req.user).populate("friends requests")
+        const user = await User.findById(userId).populate("friends requests")
 
-        if (!user) error.errorHandler(404, "No user found")
+        if (!user) error.errorHandler(res, "No user found", "user")
 
         // Send response back to client
         res
@@ -61,23 +61,21 @@ module.exports.getProfileDetails = async (req, res, next) => {
     } catch (err) {
         error.error(err)
     }
-}
+} 
 
 /***************************
  *  Update Profile Details *
  ***************************/
 module.exports.postUpdateProfileDetails = async (req, res, next) => {
-    const userId = req.userId
+    const userId = req.body.userId
 
     const firstName = req.body.firstName,
         lastName = req.body.lastName,
-        password = req.body.password,
         occupation = req.body.work,
-        email = req.body.email
+        email = req.body.email,
+        about = req.body.about
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get and validate user
         const user = await getUser(userId)
@@ -92,13 +90,7 @@ module.exports.postUpdateProfileDetails = async (req, res, next) => {
 
         user.details.email = email
 
-        if (password) {
-            // Encrypt new password
-            const hashedPw = await bcrypt.hash(password, 12)
-
-            user.password = hashedPw
-        }
-
+        user.details.about = about
         // Save user updates back to database
         await user.save()
 
@@ -116,15 +108,12 @@ module.exports.postUpdateProfileDetails = async (req, res, next) => {
  ********************************/
 module.exports.changeImage = async (req, res, next) => {
     const type = req.body.type,
-        userId = req.userId
+        userId = req.body.userId
 
-    const filename = req.file.filename,
-        fileId = req.file.Id
+    const filename = req.file,
+    fileId = req.fileId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         const user = await User.findById(userId, { password: 0 })
             .populate("friends posts")
             .populate({
@@ -136,11 +125,11 @@ module.exports.changeImage = async (req, res, next) => {
             })
 
         // Check if user is undefined
-        if (!user) error.errorHandler(403, "No use found")
+        if (!user) error.errorHandler(res, "No user found", "user")
 
         // Get old imageUrl and imageId
         let imageUrl, imageId
-
+ 
         if (type === "profile") {
             imageUrl = user.profileImage.imageUrl
             imageId = user.profileImage.imageId
@@ -151,13 +140,13 @@ module.exports.changeImage = async (req, res, next) => {
 
         switch (type) {
             case "profile":
-                user.profileImage.imageUrl = `${process.env.API_URI}/${filename}`
+                user.profileImage.imageUrl = `${filename}`
                 user.profileImage.imageId = fileId
                 await removeImage(imageUrl, imageId)
                 break;
 
             case "banner":
-                user.profileImage.imageUrl = `${process.env.API_URI}/${filename}`
+                user.profileImage.imageUrl = `${filename}`
                 user.profileImage.imageId = fileId
                 await removeImage(imageUrl, imageId)
                 break;

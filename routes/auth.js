@@ -62,6 +62,6 @@ router.post(
 )
 
 router.get("/password-reset/:resetToken", authControllers.getPasswordChange)
-router.patch("/password-reset", authControllers.postPasswordChange)
+router.patch("/password-reset/new", authControllers.postPasswordChange)
 
 module.exports = router

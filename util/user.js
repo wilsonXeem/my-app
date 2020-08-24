@@ -21,10 +21,10 @@ module.exports = {
                 return
         }
     },
-    getUser: async (userId, select = null) => {
+    getUser: async (userId, select = null, res) => {
         const user = await User.findById(userId, select)
 
-        if (!user) error.errorHandler(404, "No user found")
+        if (!user) error.errorHandler(res, "No user found", "user")
 
         return user
     }

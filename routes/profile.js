@@ -9,6 +9,6 @@ router.get("/timeline/:userId", profileControllers.getUserTimeline)
 router.post("/details", profileControllers.getProfileDetails)
 router.patch("/details/update", profileControllers.postUpdateProfileDetails)
 
-router.post("/image", profileControllers.changeImage)
+router.patch("/image", profileControllers.changeImage);
 
 module.exports = router

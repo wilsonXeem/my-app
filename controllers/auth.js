@@ -1,14 +1,13 @@
 const dotenv = require('dotenv')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
-const { validationResult } = require('express-validator/check')
+const { validationResult } = require('express-validator')
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const sgTransport = require('nodemailer-sendgrid-transport')
 
 const jwtKey = "alhamdulillahgaAllah"
 const jwtExpirySeconds = 300
-
 dotenv.config()
 
 const options = {

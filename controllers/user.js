@@ -1,6 +1,7 @@
-const { validationResult } = require('express-validator/check')
+const { validationResult } = require('express-validator')
 const { forEach } = require('p-iteration')
 const io = require('../util/socket')
+const multer = require('multer')
 
 // Models
 const Post = require('../models/post'),
@@ -15,105 +16,173 @@ const { getChat, validChatUser } = require('../util/chat')
 const { notifyFriend, notifyFriendRequest } = require('../util/notifications')
 const { removeImage } = require('../util/images/image')
 const isAuth = require('../util/is-auth/isAuth')
-const user = require('../models/user')
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/")
+    },
+    filename: (req, file, cb) => {
+        console.log(file)
+        cb(null, file.originalname)
+    }
+})
 
 /***************
  * Create Post *
  ***************/
 module.exports.postCreatePost = async (req, res, next) => {
-    const content = req.body.content,
-        image = req.file,
-        privacy = req.body.privacy
-
-    try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
-        const userId = req.userId
-
-        // Get current user
-        const user = await userExist("id", userId)
-
-        // Check if user is undefined
-        if (!user) error.errorHandler(401, "Not Authorized")
-
-        // Check if both inputs are invalid
-        if (!content && !image) error.errorHandler(422, "No content posted")
-
-        // Continue if there are no errors
-
-        // Check if there is an image selected
-        let imageUrl
-        if (image) {
-            imageUrl = `${process.env.API_URI}/${image.filename}`
+    const upload = multer({ storage }).single("image")
+    upload(req, res, (err) => {
+        if (err) {
+            return res.send(err)
         }
 
-        // Create new post
-        const post = new Post({
-            content,
-            postImage: imageUrl,
-            privacy,
-            creator: user._id.toString()
+        const cloudinary = require("cloudinary").v2
+        cloudinary.config({
+            cloud_name: "muyi-hira-app",
+            api_key: "324347284575678",
+            api_secret: "jE7V2LLM0-2zz0cNPHLlCkXuU4E"
         })
 
-        // Add new post to post array in user
-        user.posts.push(post)
-        await user.save()
+        const path = req.file.path
+        const uniqueFilename = req.file.filename
 
-        // Save post to database
-        const createdPost = await post.save()
+        cloudinary.uploader.upload(
+            path,
+            { public_id: `muyi-hira/${uniqueFilename}`, tags: "muyi-hira" },
+            async (err, image) => {
+                if (err) return res.send(err)
+                console.log("file uploaded to cloudinary");
 
-        io.getIO().emit("posts", { action: "create post" })
+                var fs = require("fs")
+                fs.unlinkSync(path)
 
-        // Return response back to client
-        res
-            .status(201)
-            .json({ message: "Post successfully created!", createdPost })
-    } catch (err) {
-        error.error(err, next)
-    }
+                const content = req.body.content,
+                    postImage = image.url,
+                    privacy = req.body.privacy
+
+                try {
+                    // Check if user is authenticated
+                    if (!req.isAuth) error.errorHandler(res, "Not Authorized", "user")
+
+                    const userId = req.body.userId
+
+                    // Get current user
+                    const user = await userExist("id", userId)
+
+                    // Check if user is undefined
+                    if (!user) error.errorHandler(res, "Not Authorized", "user")
+
+                    // Check if both inputs are invalid
+                    if (!content && !image) error.errorHandler(res, "No content posted", "input")
+
+                    // Continue if there are no errors
+
+                    // Check if there is an image selected
+                    let imageUrl
+                    if (image) {
+                        imageUrl = postImage
+                    }
+
+                    // Create new post
+                    const post = new Post({
+                        content,
+                        postImage: imageUrl,
+                        privacy,
+                        creator: user._id.toString()
+                    })
+
+                    // Add new post to post array in user
+                    user.posts.push(post)
+                    await user.save()
+
+                    // Save post to database
+                    const createdPost = await post.save()
+
+                    io.getIO().emit("posts", { action: "create post" })
+
+                    // Return response back to client
+                    res
+                        .status(201)
+                        .json({ message: "Post successfully created!", createdPost })
+                } catch (err) {
+                    error.error(err, next)
+                }
+
+            }
+        )
+    })
 }
 
 /***************
  * Update Post *
  ***************/
 module.exports.postUpdatePost = async (req, res, next) => {
-    req.userId = "5dc44cfcc6bf2c3e3f1cab72"
-
-    const postId = req.body.postId,
-        content = req.body.content,
-        postImage = req.body.postImage
-
-    try {
-        const post = await getPost(postId)
-
-        // Check if both content and postImage is undefined
-        if (!content && !postImage) error.errorHandler(422, "Post cannot be empty")
-
-        // Check if post creator id matches current user id
-        if (post.creator.toString() !== req.userId.toString()) {
-            error.errorHandler(403, "Not Authorized")
+    const upload = multer({ storage }).single("image")
+    upload(req, res, (err) => {
+        if (err) {
+            return res.send(err)
         }
 
-        // Continue if there are no errors
+        const cloudinary = require("cloudinary").v2
+        cloudinary.config({
+            cloud_name: "muyi-hira-app",
+            api_key: "324347284575678",
+            api_secret: "jE7V2LLM0-2zz0cNPHLlCkXuU4E"
+        })
 
-        post.content = content
+        const path = req.file.path
+        const uniqueFilename = req.file.filename
 
-        if (postImage) {
-            post.postImage = postImage
-        }
+        cloudinary.uploader.upload(
+            path,
+            { public_id: `muyi-hira/${uniqueFilename}`, tags: "muyi-hira" },
+            async (err, image) => {
+                if (err) return res.send(err)
+                console.log("file uploaded to cloudinary");
 
-        // Set edit date on post
-        post.edited = Date.now()
+                var fs = require("fs")
+                fs.unlinkSync(path)
 
-        // Save updated post to database
-        await post.save()
+                const userId = req.userId
 
-        // Send response back to client
-        res.status(201).json({ message: "Post has been successfully updated", post })
-    } catch (err) {
-        error.error(err, next)
-    }
+                const postId = req.body.postId,
+                    content = req.body.content,
+                    postImage = image.url
+
+                try {
+                    const post = await getPost(postId)
+
+                    // Check if both content and postImage is undefined
+                    if (!content && !postImage) error.errorHandler(res, "Post cannot be empty", "input")
+
+                    // Check if post creator id matches current user id
+                    if (post.creator.toString() !== userId.toString()) {
+                        error.errorHandler(res, "Not Authorized", "user")
+                    }
+
+                    // Continue if there are no errors
+
+                    post.content = content
+
+                    if (postImage) {
+                        post.postImage = postImage
+                    }
+
+                    // Set edit date on post
+                    post.edited = Date.now()
+
+                    // Save updated post to database
+                    await post.save()
+
+                    // Send response back to client
+                    res.status(201).json({ message: "Post has been successfully updated", post })
+                } catch (err) {
+                    error.error(err, next)
+                }
+            }
+        )
+    })
 }
 
 /***************
@@ -125,16 +194,16 @@ module.exports.postDeletePost = async (req, res, next) => {
 
     try {
         // Check if user is authnticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
+        if (!req.isAuth) error.errorHandler(res, "Not Authorized", "user")
 
         const post = await getPost(postId)
 
         // Check if post exist
-        if (!post) error.errorHandler(404, "Post not found")
+        if (!post) error.errorHandler(res, "Post not found", "post")
 
         //Check if user has permission to remove post
         if (post.creator.toString() !== userId)
-            error.errorHandler(403, "Not Authorized")
+            error.errorHandler(res, "Not Authorized", "user")
 
         // Continue if there are no errors
 
@@ -142,7 +211,7 @@ module.exports.postDeletePost = async (req, res, next) => {
         const user = await userExist("id", userId)
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Check if post has an image
         const postImage = post.postImage
@@ -198,7 +267,7 @@ module.exports.getPosts = async (req, res, next) => {
         const user = await User.findById(userId).populate("posts")
 
         // Check if user is defined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 

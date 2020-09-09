@@ -23,29 +23,30 @@ const userSchema = new Schema(
             imageUrl: {
                 type: String,
                 required: true,
-                // default: `no_profile.jpg`
+                default: "http://res.cloudinary.com/muyi-hira-app/image/upload/v1599560276/muyi-hira/profile.png.png"
             },
             imageId: {
-                type: String,
+                type: Schema.Types.ObjectId,
                 required: true,
-                // default: "5dd23e0c89dfb24e3c6e1d1a"
+                default: "5dd23e0c89dfb24e3c6e1d1a"
             }
         },
         bannerImage: {
             imageUrl: {
                 type: String,
                 required: true,
-                // default: `profile.png`
+                default: `https://res.cloudinary.com/muyi-hira-app/image/upload/v1599560129/muyi-hira/no_profile.jpg.jpg`
             },
             imageId: {
-                type: String,
+                type: Schema.Types.ObjectId,
                 required: true,
-                // default: "5dd1c3304486023f587d4666"
+                default: "5dd1c3304486023f587d4666"
             }
         },
         details: {
             email: {
                 type: String,
+                lowercase: true,
                 required: true
             },
             about: {

@@ -8,6 +8,7 @@ const User = require('../models/user')
 // Helper functions
 const { getUser } = require('../util/user')
 const error = require('../util/error-handling/error-handler')
+const { removeImage } = require('../util/images/image')
 
 /******************************
  *  Get Current User Timeline *
@@ -132,11 +133,11 @@ module.exports.changeImage = async (req, res, next) => {
     })
 
     const path = req.file.path
-    const uniqueFilename = new Date().toString()
+    const uniqueFilename = generateHex()
 
     cloudinary.uploader.upload(
       path,
-      { public_id: `muyi-hira/${uniqueFilename}`, tags: "muyi-hira" },
+      { public_id: `${uniqueFilename}`, tags: "muyi-hira" },
       async (err, image) => {
         if (err) return res.send(err)
         console.log("file uploaded to cloudinary");
@@ -148,7 +149,7 @@ module.exports.changeImage = async (req, res, next) => {
           userId = req.body.userId;
 
         const filename = image.url,
-          fileId = generateHex();
+          fileId = image.public_id;
 
         try {
           const user = await User.findById(userId)
@@ -163,15 +164,26 @@ module.exports.changeImage = async (req, res, next) => {
           // Check if user is undefined
           if (!user) error.errorHandler(res, "No user found", "user");
 
+          // Get old image public_id
+          let public_id
+
+          if (type === "profile") {
+            public_id = user.profileImage.imageId
+          } else if (type === "banner") {
+            public_id = user.bannerImage.imageId
+          }
+ 
           switch (type) {
             case "profile":
               user.profileImage.imageUrl = `${filename}`;
               user.profileImage.imageId = fileId;
+              removeImage(public_id)
               break;
 
             case "banner":
               user.bannerImage.imageUrl = `${filename}`;
               user.bannerImage.imageId = fileId;
+              removeImage(public_id)
               break;
 
             default:

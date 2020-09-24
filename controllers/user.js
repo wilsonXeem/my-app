@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator')
 const { forEach } = require('p-iteration')
 const io = require('../util/socket')
 const multer = require('multer')
+const { generateHex } = require('../util/idGenerator')
 
 // Models
 const Post = require('../models/post'),
@@ -32,86 +33,134 @@ const storage = multer.diskStorage({
  ***************/
 module.exports.postCreatePost = async (req, res, next) => {
     const upload = multer({ storage }).single("image")
-    upload(req, res, (err) => {
-        if (err) {
-            return res.send(err)
+
+    if (!req.file) {
+        const content = req.body.content,
+            privacy = req.body.privacy
+
+        try {
+
+            const userId = req.body.userId
+
+            // Get current user
+            const user = await userExist("id", userId)
+
+            // Check if user is undefined
+            if (!user) error.errorHandler(res, "Not Authorized", "user")
+
+            // Check if both inputs are invalid
+            if (!content) error.errorHandler(res, "No content posted", "input")
+
+            // Continue if there are no errors
+
+            // Create new post
+            const post = new Post({
+                content,
+                privacy,
+                creator: user._id.toString()
+            })
+
+            // Add new post to post array in user
+            user.posts.push(post)
+            await user.save()
+
+            // Save post to database
+            const createdPost = await post.save()
+
+            io.getIO().emit("posts", { action: "create post" })
+
+            // Return response back to client
+            res
+                .status(201)
+                .json({ message: "Post successfully created!", createdPost })
+        } catch (err) {
+            error.error(err, next)
         }
-
-        const cloudinary = require("cloudinary").v2
-        cloudinary.config({
-            cloud_name: "muyi-hira-app",
-            api_key: "324347284575678",
-            api_secret: "jE7V2LLM0-2zz0cNPHLlCkXuU4E"
-        })
-
-        const path = req.file.path
-        const uniqueFilename = req.file.filename
-
-        cloudinary.uploader.upload(
-            path,
-            { public_id: `muyi-hira/${uniqueFilename}`, tags: "muyi-hira" },
-            async (err, image) => {
-                if (err) return res.send(err)
-                console.log("file uploaded to cloudinary");
-
-                var fs = require("fs")
-                fs.unlinkSync(path)
-
-                const content = req.body.content,
-                    postImage = image.url,
-                    privacy = req.body.privacy
-
-                try {
-                    // Check if user is authenticated
-                    if (!req.isAuth) error.errorHandler(res, "Not Authorized", "user")
-
-                    const userId = req.body.userId
-
-                    // Get current user
-                    const user = await userExist("id", userId)
-
-                    // Check if user is undefined
-                    if (!user) error.errorHandler(res, "Not Authorized", "user")
-
-                    // Check if both inputs are invalid
-                    if (!content && !image) error.errorHandler(res, "No content posted", "input")
-
-                    // Continue if there are no errors
-
-                    // Check if there is an image selected
-                    let imageUrl
-                    if (image) {
-                        imageUrl = postImage
-                    }
-
-                    // Create new post
-                    const post = new Post({
-                        content,
-                        postImage: imageUrl,
-                        privacy,
-                        creator: user._id.toString()
-                    })
-
-                    // Add new post to post array in user
-                    user.posts.push(post)
-                    await user.save()
-
-                    // Save post to database
-                    const createdPost = await post.save()
-
-                    io.getIO().emit("posts", { action: "create post" })
-
-                    // Return response back to client
-                    res
-                        .status(201)
-                        .json({ message: "Post successfully created!", createdPost })
-                } catch (err) {
-                    error.error(err, next)
-                }
-
+    } else {
+        upload(req, res, (err) => {
+            if (err) {
+                return res.send(err)
             }
-        )
-    })
+    
+            const cloudinary = require("cloudinary").v2
+            cloudinary.config({
+                cloud_name: "muyi-hira-app",
+                api_key: "324347284575678",
+                api_secret: "jE7V2LLM0-2zz0cNPHLlCkXuU4E"
+            })
+    
+            const path = req.file.path
+            const uniqueFilename = generateHex()
+    
+            cloudinary.uploader.upload(
+                path,
+                { public_id: `${uniqueFilename}`, tags: "muyi-hira" },
+                async (err, image) => {
+                    if (err) return res.send(err)
+                    console.log("file uploaded to cloudinary");
+    
+                    var fs = require("fs")
+                    fs.unlinkSync(path)
+    
+                    const content = req.body.content,
+                        postImageUrl = image.url,
+                        postImageId = image.public_id,
+                        privacy = req.body.privacy
+    
+                    try {
+    
+                        const userId = req.body.userId
+    
+                        // Get current user
+                        const user = await userExist("id", userId)
+    
+                        // Check if user is undefined
+                        if (!user) error.errorHandler(res, "Not Authorized", "user")
+    
+                        // Check if both inputs are invalid
+                        if (!content && !postImageUrl) error.errorHandler(res, "No content posted", "input")
+    
+                        // Continue if there are no errors
+    
+                        // Check if there is an image selected
+                        let imageUrl, imageId
+                        if (image) {
+                            imageUrl = postImageUrl
+                            imageId = postImageId
+                        }
+    
+                        // Create new post
+                        const post = new Post({
+                            content,
+                            postImage: {
+                                imageUrl,
+                                imageId
+                            },
+                            privacy,
+                            creator: user._id.toString()
+                        })
+    
+                        // Add new post to post array in user
+                        user.posts.push(post)
+                        await user.save()
+    
+                        // Save post to database
+                        const createdPost = await post.save()
+    
+                        io.getIO().emit("posts", { action: "create post" })
+    
+                        // Return response back to client
+                        res
+                            .status(201)
+                            .json({ message: "Post successfully created!", createdPost })
+                    } catch (err) {
+                        error.error(err, next)
+                    }
+    
+                }
+            )
+        })
+    }
 }
 
 /***************
@@ -132,11 +181,11 @@ module.exports.postUpdatePost = async (req, res, next) => {
         })
 
         const path = req.file.path
-        const uniqueFilename = req.file.filename
+        const uniqueFilename = generateHex()
 
         cloudinary.uploader.upload(
             path,
-            { public_id: `muyi-hira/${uniqueFilename}`, tags: "muyi-hira" },
+            { public_id: `${uniqueFilename}`, tags: "muyi-hira" },
             async (err, image) => {
                 if (err) return res.send(err)
                 console.log("file uploaded to cloudinary");
@@ -148,13 +197,14 @@ module.exports.postUpdatePost = async (req, res, next) => {
 
                 const postId = req.body.postId,
                     content = req.body.content,
-                    postImage = image.url
+                    postImageUrl = image.url,
+                    postImageId = image.public_id
 
                 try {
                     const post = await getPost(postId)
 
                     // Check if both content and postImage is undefined
-                    if (!content && !postImage) error.errorHandler(res, "Post cannot be empty", "input")
+                    if (!content && !postImageUrl) error.errorHandler(res, "Post cannot be empty", "input")
 
                     // Check if post creator id matches current user id
                     if (post.creator.toString() !== userId.toString()) {
@@ -166,7 +216,8 @@ module.exports.postUpdatePost = async (req, res, next) => {
                     post.content = content
 
                     if (postImage) {
-                        post.postImage = postImage
+                        post.postImage.imageUrl = postImageUrl
+                        post.postImage.imageId = postImageId
                     }
 
                     // Set edit date on post
@@ -217,17 +268,17 @@ module.exports.postDeletePost = async (req, res, next) => {
         const postImage = post.postImage
 
         if (postImage) {
-            removeImage(postImage, null, "imageUrl")
+            removeImage(postImage.imageId)
         }
 
         // Loop through post comments for all post with images and remove them from the database
         if (post.comments.length > 0) {
             post.comments.forEach(comment => {
-                if (comment.postImage) removeImage(comment.postImage, null, "imageUrl")
+                if (comment.postImage) removeImage(comment.postImage.imageId)
 
                 if (comment.replies.length > 0) {
                     comment.replies.forEach(reply => {
-                        if (reply.postImage) removeImage(reply.postImage, null, "imageUrl")
+                        if (reply.postImage) removeImage(reply.postImage.imageId)
                     })
                 }
             })
@@ -242,8 +293,8 @@ module.exports.postDeletePost = async (req, res, next) => {
 
         // Check if post has image
         if (post.postImage) {
-            const imageUrl = post.postImage
-            removeImage(imageUrl, null, "filename")
+            const imageId = post.postImage.imageId
+            removeImage(imageId)
         }
 
         io.getIO().emit("posts", {
@@ -262,7 +313,7 @@ module.exports.postDeletePost = async (req, res, next) => {
  *     Get Posts      *
  **********************/
 module.exports.getPosts = async (req, res, next) => {
-    const userId = req.userId
+    const userId = req.body.userId
     try {
         const user = await User.findById(userId).populate("posts")
 
@@ -495,12 +546,10 @@ module.exports.cancelFriendRequest = async (req, res, next) => {
  *  Remove Friend *
  ******************/
 module.exports.removeFriend = async (req, res, next) => {
-    const userId = req.userId
+    const userId = req.body.userId
     const friendId = req.body.friendId
 
     try {
-        // Check if ser is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const friend = await getUser(friendId)
 
@@ -508,11 +557,11 @@ module.exports.removeFriend = async (req, res, next) => {
         const currentUser = await userExist("id", userId)
 
         // Check if currentUser is undefined
-        if (!currentUser) error.errorHandler(403, "Not Authorized")
+        if (!currentUser) error.errorHandler(res, "Not Authorized", "user")
 
         // Check if friendId does not exist in currentUser's friends list
         if (!currentUser.friends.includes(friendId)) {
-            error.errorHandler(404, "Friend not found")
+            error.errorHandler(res, "Friend not found", "friend")
         }
 
         // Continue if there are no errors
@@ -548,11 +597,9 @@ module.exports.removeFriend = async (req, res, next) => {
 module.exports.postSendMessage = async (req, res, next) => {
     const friendId = req.body.friendId,
         message = req.body.message,
-        userId = req.userId
+        userId = req.body.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get and validate user
         const user = await getUser(userId)
@@ -638,8 +685,6 @@ module.exports.postAddFriendToMessage = async (req, res, next) => {
         friendId = req.body.friendId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get message and verify it still exists
         const chat = await getChat(chatId)
@@ -650,13 +695,13 @@ module.exports.postAddFriendToMessage = async (req, res, next) => {
         const user = await getUser(userId)
 
         if (!user.friends.includes(friendId))
-            error.errorHandler(404, "Friend not found")
+            error.errorHandler(res, "Friend not found", "friend")
 
         // Check if friend isn't already in the chat
         if (
             chat.users.find(user => user.userId.toString() === friendId.toString())
         ) {
-            error.errorHandler(422, "This user is already in the chat")
+            error.errorHandler(res, "This user is already in the chat", "friend")
         }
 
         // Continue if there are no errors
@@ -694,7 +739,7 @@ module.exports.postAddFriendToMessage = async (req, res, next) => {
  * Remove Friend From Message *
  ******************************/
 module.exports.postRemoveFriendFromMessage = async (req, res, next) => {
-    req.userId = "5dc44cfcc6bf2c3e3f1cab72"
+    const userId = req.userId
 
     const chatId = req.body.chatId,
         friendId = req.body.friendId,
@@ -705,17 +750,17 @@ module.exports.postRemoveFriendFromMessage = async (req, res, next) => {
         const chat = await getChat(chatId)
 
         // Verify current chat to see if current requesting user is allowed to remove user
-        validChatUser(chat, req.userId)
+        validChatUser(chat, userId)
 
-        const user = await getUser(req.userId)
+        const user = await getUser(userId)
 
         // Check if friend still exists in user's friend list
         if (!user.friends.includes(friendId))
-            error.errorHandler(404, "Friend not found")
+            error.errorHandler(res, "Friend not found", "friend")
 
         // Check if friend is still in current chat
         if (!chat.users.find(user => user.userId.toString() === friendId.toString())) {
-            error.errorHandler(404, "User not currently in chat")
+            error.errorHandler(res, "User not currently in chat", "user")
         }
 
         // Continue if there are no errors
@@ -748,8 +793,6 @@ module.exports.postLeaveChat = async (req, res, next) => {
         userId = req.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get and validate user
         const user = await getUser(userId, "messages")
@@ -796,8 +839,6 @@ module.exports.getMessages = async (req, res, next) => {
     const userId = req.params.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "You must be logged in to access messages")
 
         // Get and validate user
         const user = await User.findById(userId, "messages").populate({
@@ -814,12 +855,12 @@ module.exports.getMessages = async (req, res, next) => {
             ]
         })
 
-        if (!user) error.errorHandler(403, "No user found")
+        if (!user) error.errorHandler(res, "No user found", "user")
 
         // Send response back to client
         res.status(200).json({
             message: "Messages fetched successfully",
-            messages: user.messages,
+            messages: user.messages.content,
             status: 200
         })
     } catch (err) {
@@ -831,7 +872,7 @@ module.exports.getMessages = async (req, res, next) => {
  *    Messaging    *
  *******************/
 module.exports.postMessaging = async (req, res, next) => {
-    req.userId = "5dc44cfcc6bf2c3e3f1cab72"
+    const userId = req.body.userId
 
     const chatId = req.params.id,
         message = req.body.message
@@ -841,7 +882,7 @@ module.exports.postMessaging = async (req, res, next) => {
         const chat = await getChat(chatId)
 
         // Check if valid user
-        validChatUser(chat, req.userId)
+        validChatUser(chat, userId)
 
         // Check input validation
         const validationError = validationResult(req)
@@ -852,7 +893,7 @@ module.exports.postMessaging = async (req, res, next) => {
 
         // Create message object
         const newMessage = {
-            user: req.userId,
+            user: userId,
             message
         }
 
@@ -863,7 +904,7 @@ module.exports.postMessaging = async (req, res, next) => {
         forEach(chatUsers, async item => {
             const user = await User.findById(item.userId)
 
-            if (user && item.userId.toString() !== req.userId.toString()) {
+            if (user && item.userId.toString() !== userId.toString()) {
                 // Send message notification to each valid user
 
                 // Check if user doesn't already have current chatId in their messages content array
@@ -1063,13 +1104,11 @@ module.exports.clearMessageCount = async (req, res, next) => {
     const userId = req.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const user = await User.findById(userId, "messages")
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Reset user message count
         user.messages.count = 0
@@ -1089,7 +1128,7 @@ module.exports.clearMessageCount = async (req, res, next) => {
  * Clear Friend Request count *
  ******************************/
 module.exports.clearFriendRequestCount = async (req, res, next) => {
-    const userId = req.userId
+    const userId = req.body.userId
 
     try {
         // Get user
@@ -1122,8 +1161,6 @@ module.exports.searchUser = async (req, res, next) => {
     const name = req.body.name
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const user = await User.find(
             {
@@ -1164,7 +1201,7 @@ module.exports.searchFriend = async (req, res, next) => {
             "firstName lastName fullName profileImage"
         )
 
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         res.status(200).json()
     } catch (err) {
@@ -1177,25 +1214,23 @@ module.exports.searchFriend = async (req, res, next) => {
  *******************/
 module.exports.getChat = async (req, res, next) => {
     const chatId = req.params.chatId
-    const userId = req.userId
+    const userId = req.body.userId
 
     try {
-        // Check if user is auithenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const chat = await Chat.findById(chatId)
             .populate("users.userId", "firstName lastName fullName profileImage")
             .populate("messages.user", "firstName lastName fullName profileImage")
 
         // Check if chat exists
-        if (!chat) error.errorHandler(404, "No chat found")
+        if (!chat) error.errorHandler(res, "No chat found", "chat")
 
         // Check if current userId is included in users array of chat
         const isIncluded = chat.users.filter(
             user => user.userId._id.toString() === userId.toString()
         )
 
-        if (isIncluded.length === 0) error.errorHandler(403, "Not Authorized")
+        if (isIncluded.length === 0) error.errorHandler(res, "Not Authorized", "user")
 
         // Continue if there are no errors
 
@@ -1209,12 +1244,9 @@ module.exports.getChat = async (req, res, next) => {
  * Get User Friend Request *
  ***************************/
 module.exports.getFriendRequests = async (req, res, next) => {
-    const userId = req.userId
+    const userId = req.body.userId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         const user = await User.findById(userId)
             .populate(
                 "requests.content.user",
@@ -1226,7 +1258,7 @@ module.exports.getFriendRequests = async (req, res, next) => {
             )
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         res.status(200).json({ status: 200, request: user.requests })
     } catch (err) {

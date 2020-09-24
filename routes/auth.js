@@ -8,21 +8,18 @@ const authControllers = require('../controllers/auth')
 router.post(
     "/signup",
     [
-        body("email", "Email is invalid")
-            .isEmail()
-            .not()
-            .isEmpty(),
         body("firstName", "First name cannot be empty")
             .not()
             .isEmpty(),
         body("lastName", "Last name cannot be empty")
             .not()
             .isEmpty(),
-        body("password", "Password must be at least 8 characters long")
-            .isLength({ min: 8 })
+        body("email", "Email is invalid")
+            .isEmail()
             .not()
             .isEmpty(),
-        body("gender", "Please select a gender")
+        body("password", "Password must be at least 8 characters long")
+            .isLength({ min: 8 })
             .not()
             .isEmpty(),
         body("dob")
@@ -43,7 +40,10 @@ router.post(
                 }
 
                 return true
-            })
+            }),
+        body("gender", "Please select a gender")
+            .not()
+            .isEmpty(),
     ],
     authControllers.postSignup
 )
@@ -54,9 +54,9 @@ router.post(
     "/password-reset",
     [
         body("email", "Please enter a valid email")
-        .isEmail()
-        .not()
-        .isEmpty()
+            .isEmail()
+            .not()
+            .isEmpty()
     ],
     authControllers.postPasswordReset
 )

@@ -50,7 +50,7 @@ module.exports.getPosts = async (req, res, next) => {
         } else {
             // If user is authenticated, show posts that are on your friends list, plus your own as well with any post that is public
 
-            const userId = req.userId
+            const userId = req.body.userId
 
             const user = await User.findById(userId)
                 .populate("creator")
@@ -61,7 +61,7 @@ module.exports.getPosts = async (req, res, next) => {
                 .populate(populatePost)
 
             // Check if user is undefined
-            if (!user) error.errorHandler(404, "User not found")
+            if (!user) error.errorHandler(res, "User not found", "user")
 
             // Grab all public posts
             post = await Post.find({
@@ -107,8 +107,6 @@ module.exports.postComment = async (req, res, next) => {
         image = req.file
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await getPost(postId)
 
@@ -120,7 +118,7 @@ module.exports.postComment = async (req, res, next) => {
         if (!user) error.errorHandler(404, "User not found")
 
         // Check if both content and postImage are empty
-        if (!content && !image) error.errorHandler(422, "Comment can't be empty")
+        if (!content && !image) error.errorHandler(res, "Comment can't be empty", "comment")
 
         // Check if there is a post image
         let imageUrl
@@ -178,8 +176,6 @@ module.exports.postDeleteComment = async (req, res, next) => {
         postId = req.params.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get main post that the comment is under
         const post = await getPost(postId, "comments")
@@ -194,7 +190,7 @@ module.exports.postDeleteComment = async (req, res, next) => {
 
         // Check if current user Id matches with comment id user._id
         if (existingComment.user.toString() !== userId.toString()) {
-            error.errorHandler(403, "Not Authorized")
+            error.errorHandler(res, "Not Authorized", "user")
         }
 
         // Continue if there are no errors
@@ -240,8 +236,6 @@ module.exports.postEditComment = async (req, res, next) => {
         commentId = req.body.commentId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get post
         const post = await getPost(postId, "comments")
@@ -250,7 +244,7 @@ module.exports.postEditComment = async (req, res, next) => {
 
         // Check if both content and postImage is empty
         if (!content) {
-            error.errorHandler(422, "Fields cannot be empty")
+            error.errorHandler(res, "Fields cannot be empty", "comment")
         }
 
         // Filter out comments array from commentId
@@ -259,12 +253,12 @@ module.exports.postEditComment = async (req, res, next) => {
         )
 
         // Check if comment exists
-        if (commentPostIndex < 0) error.errorHandler(404, "Comment not found")
+        if (commentPostIndex < 0) error.errorHandler(res, "Comment not found", "comment")
 
         // Verify if user id from comment matches current user's id
         const commentUserId = post.comments[commentPostIndex].user.toString()
 
-        if (commentUserId !== userId.toString()) error.errorHandler(403, "Not authorized")
+        if (commentUserId !== userId.toString()) error.errorHandler(res, "Not authorized", "user")
 
         // Continue if there are no errors
 
@@ -294,8 +288,6 @@ module.exports.postAddLike = async (req, res, next) => {
     const postId = req.body.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await Post.findById(postId)
             .populate("likes", "firstName lastName fullName profileImage")
@@ -363,8 +355,6 @@ module.exports.postRemoveLike = async (req, res, next) => {
     const postId = req.body.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = getPost(postId)
 
@@ -376,7 +366,7 @@ module.exports.postRemoveLike = async (req, res, next) => {
         if (!user) error.errorHandler(404, "User not found")
 
         // Check if user has not liked the post
-        if (!post.likes.includes(userId)) error.errorHandler(422, "No likes to remove")
+        if (!post.likes.includes(userId)) error.errorHandler(res, "No likes to remove", "user")
 
         // Continue if there are no errors
 
@@ -431,8 +421,6 @@ module.exports.postAddCommentLike = async (req, res, next) => {
         commentId = req.body.commentId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await Post.findById(postId)
             .populate("comments.user", "firstName lastName fullName profileImage")
@@ -447,7 +435,7 @@ module.exports.postAddCommentLike = async (req, res, next) => {
         const user = await User.findById(userId, "profileImage")
 
         // Check if user exists
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Check if current user already ha liked the comment
         const alreadyLiked = post.comments[commentId].likes.filter(
@@ -505,15 +493,13 @@ module.exports.postAddCommentLike = async (req, res, next) => {
 }
 
 /******************************
- * Remove a Like to a Comment *
+ * Remove a Like from a Comment *
  ******************************/
 module.exports.postRemoveCommentLike = async (req, res, next) => {
     const postId = req.body.postId,
         commentId = req.body.commentId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await Post.findById(postId)
 
@@ -525,12 +511,12 @@ module.exports.postRemoveCommentLike = async (req, res, next) => {
         const user = await User.findById(userId, "profileImage")
 
         // Check if user exists
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Check if user has a like on the comment
         const hasLike = post.comments[commentIndex].likes.includes(userId)
 
-        if (!hasLike) error.errorHandler(422, "No likes to remove")
+        if (!hasLike) error.errorHandler(res, "No likes to remove", "like")
 
         // Continue if there are no errors
 
@@ -592,18 +578,16 @@ module.exports.postAddReply = async (req, res, next) => {
         userId = req.body.userId
 
     try {
-        // Check if user is athenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const user = await User.findById(userId, "profileImage")
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         const post = await getPost(postId)
 
         // Check if post still exists
-        if (!post) error.errorHandler(404, "Post not found")
+        if (!post) error.errorHandler(res, "Post not found", "post")
 
         // Check if comment still exists
         const commentIndex = getCommentIndex(post, commentId)
@@ -658,7 +642,7 @@ module.exports.postAddReply = async (req, res, next) => {
 }
 
 /******************************
- * Remove Remove from Comment *
+ * Remove Reply from Comment *
  ******************************/
 module.exports.postRemoveReply = async (req, res, next) => {
     const postId = req.pqrams.postId,
@@ -666,8 +650,6 @@ module.exports.postRemoveReply = async (req, res, next) => {
         replyId = req.body.replyId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await getPost(postId, "comments")
 
@@ -681,14 +663,14 @@ module.exports.postRemoveReply = async (req, res, next) => {
             reply => reply._id.toString() === replyId.toString()
         )
 
-        if (replyIndex < 0) error.errorHandler(404, "Comment not found")
+        if (replyIndex < 0) error.errorHandler(res, "Comment not found", "comment")
 
         // Check if replies user id matches current userId
         if (
             post.comments[commentIndex].replies[replyIndex].user.toString() !==
             userId.toString()
         ) {
-            error.errorHandler(403, "Not Authorized")
+            error.errorHandler(res, "Not Authorized", "user")
         }
 
         // Continue if there are no errors
@@ -724,8 +706,6 @@ module.exports.postReplyAddLike = async (req, res, next) => {
         replyId = req.body.replyId
 
     try {
-        // Check if user is authorized
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const post = await Post.findById(postId, "comments _id")
             .populate("commentsreplies.user", "firstName lastName fullName profileImage")
@@ -741,7 +721,7 @@ module.exports.postReplyAddLike = async (req, res, next) => {
         const user = await User.findById(userId, "profileImage")
 
         // Check if user has already liked the comment
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Check if user has already liked comment
         const hasLiked = post.comments[commentIndex].replies[
@@ -802,8 +782,6 @@ module.exports.postReplyRemoveLike = async (req, res, next) => {
         replyId = req.body.replyId
 
     try {
-        // Check if user is authorized
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get and check if post exist
         const post = await getPost(post, "comments _id")
@@ -819,7 +797,7 @@ module.exports.postReplyRemoveLike = async (req, res, next) => {
         const user = await User.findById(userId, "profileImage")
 
         // Check if user exists
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Check if reply still exists
         const replyIndex = getReplyIndex(post, commentIndex, replyId)
@@ -829,7 +807,7 @@ module.exports.postReplyRemoveLike = async (req, res, next) => {
             replyIndex
         ].likes.includes(userId)
 
-        if (!hasLiked) error.errorHandler(422, "No like to move")
+        if (!hasLiked) error.errorHandler(res, "No like to remove", "like")
 
         // Continue if there are no errors
 
@@ -887,9 +865,6 @@ module.exports.postUpdateReply = async (req, res, next) => {
         const validatorErrors = validationResult(req)
         error.validationError(validatorErrors)
 
-        // Check if user is authorized
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
-
         // Get and validate post
         const post = await getPost(postId, "comments")
 
@@ -930,14 +905,12 @@ module.exports.postUpdateReply = async (req, res, next) => {
  *********************/
 module.exports.getNotifications = async (req, res, next) => {
     try {
-        // Check if user is authorized
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const userId = req.params.userId
 
         const user = await User.findById(userId, "notifications")
 
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 
@@ -976,12 +949,10 @@ module.exports.postClearNotifications = async (req, res, next) => {
         type = req.body.type
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const user = await User.findById(userId, "notifications")
 
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Continue if there are no errors
 
@@ -1010,15 +981,13 @@ module.exports.postClearNotifications = async (req, res, next) => {
  ******************/
 module.exports.postClearMessage = async (req, res, next) => {
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const userId = req.userId
 
         const user = await User.findById(userId, "messages")
 
         // Check if user is undefined
-        if (!user) error.errorHandler(404, "User not found")
+        if (!user) error.errorHandler(res, "User not found", "user")
 
         // Reset messages count to 0
         user.messages.count = 0
@@ -1038,8 +1007,6 @@ module.exports.getPost = async (req, res, next) => {
     const postId = req.params.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get post
         const post = await Post.findById(postId)
@@ -1051,7 +1018,7 @@ module.exports.getPost = async (req, res, next) => {
             .populate("comments.replies.likes", "fistName lastName fullName profileimage")
 
         // Check if post is undefined
-        if (!post) error.errorHandler(404, "Post not found")
+        if (!post) error.errorHandler(res, "Post not found", "post")
 
         // Continue if there are no errors
 
@@ -1070,8 +1037,6 @@ module.exports.editPost = async (req, res, next) => {
         content = req.body.content
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Check for validation errors
         const validatorErrors = validationResult(req)
@@ -1080,7 +1045,7 @@ module.exports.editPost = async (req, res, next) => {
         const post = await Post.findById(postId, "content")
 
         // Check if post undefined
-        if (!post) error.errorHandler(404, "Post not found")
+        if (!post) error.errorHandler(res, "Post not found", "post")
 
         // Continue if there are no errors
         post.content = content
@@ -1104,8 +1069,6 @@ module.exports.getPostPrivacy = async (req, res, next) => {
     const postId = req.params.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         const userId = req.userId
 
@@ -1114,7 +1077,7 @@ module.exports.getPostPrivacy = async (req, res, next) => {
 
         // Check if userId matches the creatorId
         if (userId.toString() !== post.creator.toString()) {
-            error.errorHandler(403, "Not Authorized")
+            error.errorHandler(res, "Not Authorized", "user")
         }
 
         // Continue if there are no errors
@@ -1138,8 +1101,6 @@ module.exports.postChangePostPrivacy = async (req, res, next) => {
         postId = req.body.postId
 
     try {
-        // Check if user is authenticated
-        if (!req.isAuth) error.errorHandler(403, "Not Authorized")
 
         // Get and validate post
         const post = await Post.findById(postId, "creator privacy")
@@ -1148,7 +1109,7 @@ module.exports.postChangePostPrivacy = async (req, res, next) => {
 
         // Check if current user id matches creator id
         if (post.creator.toString() !== userId.toString()) {
-            error.errorHandler(403, "Not Authorized")
+            error.errorHandler(res, "Not Authorized", "user")
         }
 
         // Continue if there are no errors

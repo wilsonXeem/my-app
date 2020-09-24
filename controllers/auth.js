@@ -65,7 +65,7 @@ module.exports.postSignup = async (req, res, next) => {
         const createUser = await user.save()
 
         // Send response back to client
-        res.status(201).json({ message: "User created", createUser })
+        res.status(201).json({ message: "Sign Up successful", type: "user",  createUser })
     } catch (err) {
         error.error(err, next)
     }

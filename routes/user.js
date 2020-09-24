@@ -40,7 +40,7 @@ router.post("/message/friend", userControllers.postAddFriendToMessage)
 router.delete("/message/friend", userControllers.postRemoveFriendFromMessage)
 
 router.get("/chat/:userId", userControllers.getMessages)
-router.delete("/chat/", userControllers.clearFriendRequestCount)
+router.delete("/requests", userControllers.clearFriendRequestCount)
 
 router.post(
     "/chat/:id",

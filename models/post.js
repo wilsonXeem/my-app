@@ -4,7 +4,16 @@ const Schema = mongoose.Schema
 const postSchema = new Schema(
     {
     content: String,
-    postImage: String,
+    postImage: {
+        imageUrl: {
+            type: String,
+            required: false,
+        },
+        imageId: {
+            type: Schema.Types.ObjectId,
+            required: false,
+        }
+    },
     edited: Date,
     creator: {
         type: Schema.Types.ObjectId,
@@ -30,10 +39,19 @@ const postSchema = new Schema(
                 ref: "User"
             },
             content: String,
-            postImage: String,
+            postImage: {
+                imageUrl: {
+                    type: String,
+                    required: true,
+                },
+                imageId: {
+                    type: Schema.Types.ObjectId,
+                    required: true,
+                }
+            },
             createdAt: {
                 type: Date,
-                default: Date.now
+                default: Date.now()
             },
             likes: [
                 {
@@ -50,10 +68,19 @@ const postSchema = new Schema(
                     },
                     edited: String,
                     content: String,
-                    postImage: String,
+                    postImage: {
+                        imageUrl: {
+                            type: String,
+                            required: true,
+                        },
+                        imageId: {
+                            type: Schema.Types.ObjectId,
+                            required: true,
+                        }
+                    },
                     createdAt: {
                         type: Date,
-                        default: Date.now
+                        default: Date.now()
                     },
                     likes: [
                         {
